@@ -13,12 +13,10 @@ import (
 	"strconv"
 )
 
-// WorkSheetExtract contains a formatted work sheet string
-// and its corresponding sheet number.
-type WorkSheetExtract struct {
-	SheetName string
-	Text      string
-}
+var (
+	errMissingContentTypes  = errors.New("missing content types file")
+	errMissingSharedStrings = errors.New("missing shared strings file")
+)
 
 const (
 	fileTypeSharedStrings = "application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"
@@ -26,6 +24,13 @@ const (
 
 	fileNameContentTypes = "[Content_Types].xml"
 )
+
+// WorkSheetExtract contains a formatted work sheet string
+// and its corresponding sheet number.
+type WorkSheetExtract struct {
+	SheetName string
+	Text      string
+}
 
 // Config should be used to specify output table
 // formatting of the extracted XLSX text content.
@@ -52,7 +57,7 @@ func Extract(file *os.File, config Config) ([]WorkSheetExtract, error) {
 	zipFiles := mapZipFiles(zr.File)
 	descFile, ok := zipFiles[fileNameContentTypes]
 	if !ok {
-		return nil, errors.New("document has no content descriptions")
+		return nil, errMissingContentTypes
 	}
 	var fileDesc ContentTypes
 	if err := decodeZipFile(descFile, &fileDesc); err != nil {
@@ -66,10 +71,10 @@ func Extract(file *os.File, config Config) ([]WorkSheetExtract, error) {
 		case fileTypeSharedStrings:
 			sharedStringsFile, ok := zipFiles[or.PartName]
 			if !ok {
-				return nil, errors.New("missing shared strings file")
+				return nil, errMissingSharedStrings
 			}
 			if err := decodeZipFile(sharedStringsFile, &sharedStrings); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("could not decode file %v: %v", or.PartName, err)
 			}
 			break
 		}
@@ -87,7 +92,7 @@ func Extract(file *os.File, config Config) ([]WorkSheetExtract, error) {
 			}
 			var sheet WorkSheet
 			if err := decodeZipFile(workSheet, &sheet); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("could not decode file %v: %v", or.PartName, err)
 			}
 
 			textMatrix, err := MakeTextMatrix(sheet, stringLookup)
@@ -113,6 +118,29 @@ func Extract(file *os.File, config Config) ([]WorkSheetExtract, error) {
 	}
 
 	return workSheetExtracts, nil
+}
+
+/*
+ * The following structs represent XLSX XML schemas
+ * for its different file types.
+ */
+
+// ContentTypes represents a Content-Type
+// XML file, it contains the file descriptions.
+type ContentTypes struct {
+	XMLName   xml.Name   `xml:"Types"`
+	Text      string     `xml:",chardata"`
+	Xmlns     string     `xml:"xmlns,attr"`
+	Overrides []override `xml:"Override"`
+}
+
+// override contains contains information
+// on the content type of a file, identified
+// by the PartName.
+type override struct {
+	XMLName     xml.Name `xml:"Override"`
+	ContentType string   `xml:"ContentType,attr"`
+	PartName    string   `xml:"PartName,attr"`
 }
 
 // WorkSheet represents an XLSX worksheet.
@@ -151,6 +179,61 @@ type cell struct {
 	Type       string `xml:"t,attr"`
 	Value      string `xml:"v"`
 	F          string `xml:"f"`
+}
+
+// SharedStrings represents a shared strings
+// XML file for an XLSX document.
+type SharedStrings struct {
+	XMLName     xml.Name     `xml:"sst"`
+	Text        string       `xml:",chardata"`
+	Xmlns       string       `xml:"xmlns,attr"`
+	Count       string       `xml:"count,attr"`
+	UniqueCount string       `xml:"uniqueCount,attr"`
+	StringItem  []stringItem `xml:"si"`
+}
+
+// stringItem contains the shared string
+// text element
+type stringItem struct {
+	Text         ssText         `xml:"t"`
+	RichTextRuns []richTextRuns `xml:"r"`
+}
+
+// ssText represents a shared string
+// text element contained in a shared strings
+// XML file.
+type ssText struct {
+	Text  string `xml:",chardata"`
+	Space string `xml:"space,attr"`
+}
+
+// richTextRuns represents a rich text run
+// element use to hold text with with formatting
+// at the character level.
+type richTextRuns struct {
+	Text ssText `xml:"t"`
+}
+
+// SharedStringLookup is a slice of strings, it should be created
+// from a SharedStrings struct.
+type SharedStringLookup []string
+
+// MakeStringLookup creates a SharedStringLookup from the
+// shared strings XML struct.
+func MakeStringLookup(sharedStrings SharedStrings) SharedStringLookup {
+	lookupSlice := make(SharedStringLookup, len(sharedStrings.StringItem))
+	for i, si := range sharedStrings.StringItem {
+		if len(si.RichTextRuns) > 0 {
+			text := ""
+			for _, run := range si.RichTextRuns {
+				text += run.Text.Text
+			}
+			lookupSlice[i] += text
+		} else {
+			lookupSlice[i] = si.Text.Text
+		}
+	}
+	return lookupSlice
 }
 
 // MakeTextMatrix takes a WorkSheet and a SharedStringLookup
@@ -268,79 +351,6 @@ func alphaIndex(charIdx []byte) int {
 	}
 
 	return index - 1
-}
-
-// SharedStrings represents a shared strings
-// XML file for an XLSX document.
-type SharedStrings struct {
-	XMLName     xml.Name     `xml:"sst"`
-	Text        string       `xml:",chardata"`
-	Xmlns       string       `xml:"xmlns,attr"`
-	Count       string       `xml:"count,attr"`
-	UniqueCount string       `xml:"uniqueCount,attr"`
-	StringItem  []stringItem `xml:"si"`
-}
-
-// stringItem contains the shared string
-// text element
-type stringItem struct {
-	Text         ssText         `xml:"t"`
-	RichTextRuns []richTextRuns `xml:"r"`
-}
-
-// ssText represents a shared string
-// text element contained in a shared strings
-// XML file.
-type ssText struct {
-	Text  string `xml:",chardata"`
-	Space string `xml:"space,attr"`
-}
-
-// richTextRuns represents a rich text run
-// element use to hold text with with formatting
-// at the character level.
-type richTextRuns struct {
-	Text ssText `xml:"t"`
-}
-
-// SharedStringLookup is a slice of strings, it should be created
-// from a SharedStrings struct.
-type SharedStringLookup []string
-
-// MakeStringLookup creates a SharedStringLookup from the
-// shared strings XML struct.
-func MakeStringLookup(sharedStrings SharedStrings) SharedStringLookup {
-	lookupSlice := make(SharedStringLookup, len(sharedStrings.StringItem))
-	for i, si := range sharedStrings.StringItem {
-		if len(si.RichTextRuns) > 0 {
-			text := ""
-			for _, run := range si.RichTextRuns {
-				text += run.Text.Text
-			}
-			lookupSlice[i] += text
-		} else {
-			lookupSlice[i] = si.Text.Text
-		}
-	}
-	return lookupSlice
-}
-
-// ContentTypes represents a Content-Type
-// XML file, it contains the file descriptions.
-type ContentTypes struct {
-	XMLName   xml.Name   `xml:"Types"`
-	Text      string     `xml:",chardata"`
-	Xmlns     string     `xml:"xmlns,attr"`
-	Overrides []override `xml:"Override"`
-}
-
-// override contains contains information
-// on the content type of a file, identified
-// by the PartName.
-type override struct {
-	XMLName     xml.Name `xml:"Override"`
-	ContentType string   `xml:"ContentType,attr"`
-	PartName    string   `xml:"PartName,attr"`
 }
 
 // makeStringMatrix creates a 2D string array using
