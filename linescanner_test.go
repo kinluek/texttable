@@ -1,4 +1,4 @@
-package xlsxtext
+package texttable
 
 import (
 	"io"

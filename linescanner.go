@@ -1,4 +1,4 @@
-package xlsxtext
+package texttable
 
 import (
 	"bufio"
@@ -39,7 +39,6 @@ type LineScannerConfig struct {
 // Note: the minimum values for line width and margin are
 // 1 and 0, respectively.
 func NewLineScanner(text string, config LineScannerConfig) *LineScanner {
-
 	// adjust config to minimum threshold
 	// if any parameters go below.
 	if config.LineWidth < 1 {

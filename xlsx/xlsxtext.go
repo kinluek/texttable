@@ -1,4 +1,4 @@
-package xlsxtext
+package xlsx
 
 import (
 	"archive/zip"
@@ -6,6 +6,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"github.com/kinluek/texttable"
 	"math"
 	"os"
 	"regexp"
@@ -26,11 +27,19 @@ const (
 	fileNameContentTypes = "[Content_Types].xml"
 )
 
+// Config should be used to specify output table
+// formatting of the extracted XLSX text content.
+type Config struct {
+	ColumnWidth  int
+	ColumnMargin int
+	RowMargin    int
+}
+
 // Extract takes an *os.File which should contain the zipped
 // XLSX data and returns the extracted content as a formatted
 // string table. It takes a second parameter which sets the column
 // width and column and row margins of the generated string tables.
-func Extract(file *os.File, config TextTableConfig) ([]WorkSheetExtract, error) {
+func Extract(file *os.File, config Config) ([]WorkSheetExtract, error) {
 	fi, err := file.Stat()
 	if err != nil {
 		return nil, err
@@ -86,8 +95,12 @@ func Extract(file *os.File, config TextTableConfig) ([]WorkSheetExtract, error) 
 				return nil, fmt.Errorf("could not create text table: %v", err)
 			}
 
-			ttf := NewTextTableFormatter(textMatrix, config)
-			stringTable, err := ttf.Format()
+			ttf := texttable.New(textMatrix, texttable.Config{
+				ColumnMargin: config.ColumnMargin,
+				ColumnWidth:  config.ColumnWidth,
+				RowMargin:    config.RowMargin,
+			})
+			stringTable, err := ttf.Output()
 			if err != nil {
 				return nil, fmt.Errorf("could not format text table into string: %v", err)
 			}
@@ -287,7 +300,7 @@ type ssText struct {
 // element use to hold text with with formatting
 // at the character level.
 type richTextRuns struct {
-	Text    ssText `xml:"t"`
+	Text ssText `xml:"t"`
 }
 
 // SharedStringLookup is a slice of strings, it should be created
@@ -299,7 +312,7 @@ type SharedStringLookup []string
 func MakeStringLookup(sharedStrings SharedStrings) SharedStringLookup {
 	lookupSlice := make(SharedStringLookup, len(sharedStrings.StringItem))
 	for i, si := range sharedStrings.StringItem {
-		if  len(si.RichTextRuns) > 0 {
+		if len(si.RichTextRuns) > 0 {
 			text := ""
 			for _, run := range si.RichTextRuns {
 				text += run.Text.Text

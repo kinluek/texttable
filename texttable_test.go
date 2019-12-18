@@ -1,10 +1,10 @@
-package xlsxtext
+package texttable
 
 import (
 	"testing"
 )
 
-func TestTextTableFormatter_Format(t *testing.T) {
+func TestTextTableFormatter_Output(t *testing.T) {
 	tests := []struct {
 		name       string
 		input      [][]string
@@ -191,13 +191,13 @@ func TestTextTableFormatter_Format(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ttf := NewTextTableFormatter(tt.input, TextTableConfig{
+			ttf := New(tt.input, Config{
 				ColumnWidth:  30,
 				ColumnMargin: 2,
 				RowMargin:    1,
 			})
 
-			output, err := ttf.Format()
+			output, err := ttf.Output()
 			if err != nil {
 				t.Fatalf("failed to format text table: %v", err)
 			}

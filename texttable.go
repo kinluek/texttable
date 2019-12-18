@@ -1,32 +1,32 @@
-package xlsxtext
+package texttable
 
 import (
 	"io"
 	"strings"
 )
 
-// TextTableFormatter knows how to format a 2D string slice
+// TextTable knows how to format a 2D string slice
 // into a constant width string table. It should be constructed
-// only with the NewTextTableFormatter function.
-type TextTableFormatter struct {
+// only with the New function.
+type TextTable struct {
 	scannerMatrix     [][]*LineScanner
 	emptyColumnFiller string
 	rowSpacing        string
 }
 
-// TextTableConfig should be used to set optional
-// parameters for the TextTableFormatter.
-type TextTableConfig struct {
+// Config should be used to set up configuration
+// for a TextTable.
+type Config struct {
 	ColumnWidth  int
 	ColumnMargin int
 	RowMargin    int
 }
 
-// NewTextTableFormatter knows how to create a new TextTableFormatter
-// from a given text table and optional TextTableConfig parameters.
+// New knows how to create a new TextTable
+// from a given text table and optional Config parameters.
 // Note: the minimum values for column width, column margin and row
 // margin are 1, 0 and 0 respectively.
-func NewTextTableFormatter(textTable [][]string, config TextTableConfig) *TextTableFormatter {
+func New(textTable [][]string, config Config) *TextTable {
 	// adjust config to minimum threshold
 	// if any parameters go below.
 	if config.ColumnWidth < 1 {
@@ -72,15 +72,15 @@ func NewTextTableFormatter(textTable [][]string, config TextTableConfig) *TextTa
 		}
 	}
 
-	return &TextTableFormatter{
+	return &TextTable{
 		scannerMatrix:     scannerMatrix,
 		rowSpacing:        strings.Repeat("\n", config.RowMargin),
 		emptyColumnFiller: strings.Repeat(" ", config.ColumnWidth+2*config.ColumnMargin),
 	}
 }
 
-// Format produces the formatted text table as a string.
-func (tf *TextTableFormatter) Format() (string, error) {
+// Output produces the formatted text table as a string.
+func (tf *TextTable) Output() (string, error) {
 	stringTable := ""
 
 	numRows := len(tf.scannerMatrix)

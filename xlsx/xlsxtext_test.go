@@ -1,4 +1,4 @@
-package xlsxtext
+package xlsx
 
 import (
 	"os"
@@ -103,7 +103,7 @@ func TestExtract(t *testing.T) {
 				t.Fatalf("could not open input file: %v", err)
 			}
 
-			sheets, err := Extract(f, TextTableConfig{
+			sheets, err := Extract(f, Config{
 				ColumnWidth:  30,
 				ColumnMargin: 2,
 				RowMargin:    1,
