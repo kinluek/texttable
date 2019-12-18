@@ -1,0 +1,13 @@
+xl/worksheets/sheet1.xml
+
+  TEST EXAMPLE                                                                                        
+                                                                                                      
+                                                                                                      
+  FOOD                              healthy                           vegatable                       
+                                                                                                      
+  cheese                            no                                no                              
+                                                                                                      
+  ham                               medium                            no                              
+                                                                                                      
+  lettuce                           yes                               yes                             
+                                                                                                      
