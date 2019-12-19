@@ -17,9 +17,10 @@ type TextTable struct {
 // Config should be used to set up configuration
 // for a TextTable.
 type Config struct {
-	ColumnWidth  int
-	ColumnMargin int
-	RowMargin    int
+	ColumnWidth    int
+	ColumnMargin   int
+	RowMargin      int
+	IgnoreNewLines bool
 }
 
 // New knows how to create a new TextTable
@@ -66,8 +67,9 @@ func New(textTable [][]string, config Config) *TextTable {
 	for y := range textTable {
 		for x := range textTable[y] {
 			scannerMatrix[y][x] = NewLineScanner(textTable[y][x], LineScannerConfig{
-				LineWidth:  config.ColumnWidth,
-				LineMargin: config.ColumnMargin,
+				LineWidth:      config.ColumnWidth,
+				LineMargin:     config.ColumnMargin,
+				IgnoreNewLines: config.IgnoreNewLines,
 			})
 		}
 	}

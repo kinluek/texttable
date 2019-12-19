@@ -27,7 +27,7 @@ func TestLineScanner_Next(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			formattedText := ""
-			s := NewLineScanner(tt.input, LineScannerConfig{25, 2})
+			s := NewLineScanner(tt.input, LineScannerConfig{25, 2, false})
 			for {
 				line, err := s.Next()
 				if err == io.EOF {

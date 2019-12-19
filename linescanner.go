@@ -19,18 +19,20 @@ import (
 // LineScanner should only be constructed with the NewLineScanner
 // function.
 type LineScanner struct {
-	s             *bufio.Scanner
-	lineWidth     int
-	lineFormat    string
-	overFlow      string
-	newLineReturn string
+	s              *bufio.Scanner
+	lineWidth      int
+	lineFormat     string
+	overFlow       string
+	newLineReturn  string
+	ignoreNewLines bool
 }
 
 // LineScannerConfig should be used to set optional
 // configuration parameters for the LineScanner.
 type LineScannerConfig struct {
-	LineWidth  int
-	LineMargin int
+	LineWidth      int
+	LineMargin     int
+	IgnoreNewLines bool
 }
 
 // NewLineScanner knows how to create a new LineScanner
@@ -48,19 +50,30 @@ func NewLineScanner(text string, config LineScannerConfig) *LineScanner {
 		config.LineMargin = 0
 	}
 
+	// set configure scanner with
+	// split func
 	s := bufio.NewScanner(strings.NewReader(text))
 	newLineReturn := []byte(strings.Repeat(" ", config.LineWidth))
-	s.Split(scanWordsAndNewLines(newLineReturn))
+
+	var splitFunc bufio.SplitFunc
+	switch config.IgnoreNewLines {
+	case true:
+		splitFunc = bufio.ScanWords
+	case false:
+		splitFunc = scanWordsAndNewLines(newLineReturn)
+	}
+
+	s.Split(splitFunc)
 
 	margin := strings.Repeat(" ", config.LineMargin)
 	lineFormat := margin + "%-" + strconv.Itoa(config.LineWidth) + "v" + margin
 
 	return &LineScanner{
-		s:          s,
-		lineWidth:  config.LineWidth,
-		lineFormat: lineFormat,
-		overFlow:   "",
-		newLineReturn: string(newLineReturn),
+		s:              s,
+		lineWidth:      config.LineWidth,
+		lineFormat:     lineFormat,
+		overFlow:       "",
+		newLineReturn:  string(newLineReturn),
 	}
 }
 
@@ -103,7 +116,7 @@ func (ls *LineScanner) Next() (string, error) {
 			ls.overFlow = newLine[ls.lineWidth:]
 			return fmt.Sprintf(ls.lineFormat, newLine[:ls.lineWidth]), nil
 		}
-		// handle new lines
+		// handle new lines ('\n')
 		if word == ls.newLineReturn {
 			if len(newLine) > 0 {
 				return fmt.Sprintf(ls.lineFormat, line), nil
@@ -130,7 +143,7 @@ func (ls *LineScanner) Next() (string, error) {
 // deleted. It will never return an empty string. The definition of
 // space is set by unicode.IsSpace.
 //
-// This is an extension of Go's standard library bufio.ScanWords
+// This is an extension/closure of Go's standard library bufio.ScanWords
 // function, where new lines ('\n') are not ignored by the scanner
 // and returns the newLineReturn argument in its place.
 // This function is crucial to getting new lines to be wrapped correctly
